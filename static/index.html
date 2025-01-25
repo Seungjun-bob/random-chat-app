@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Chat</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- 메인 화면 -->
+    <div id="main">
+        <button id="start-chat">채팅 시작</button>
+    </div>
+
+    <!-- 채팅 화면 -->
+    <div id="chat">
+        <div id="chat-log"></div>
+        <div id="input-container">
+            <input id="message-input" placeholder="메시지를 입력하세요" disabled />
+            <button id="send-message">전송</button>
+        </div>
+        <button id="end-chat">종료</button>
+    </div>
+
+    <script>
+        let ws; // WebSocket 객체
+        let matched = false; // 매칭 상태 확인용
+
+        // 채팅 시작 버튼
+        document.getElementById("start-chat").addEventListener("click", () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                appendMessage("이미 연결되어 있습니다.");
+                return;
+            }
+
+            // WebSocket 연결
+            ws = new WebSocket(`ws://${window.location.hostname}:8080/ws`);
+
+            ws.onopen = () => {
+                console.log("WebSocket 연결 성공");
+                appendMessage("시스템: 상대방을 기다리고 있습니다...");
+            };
+
+            ws.onmessage = (event) => {
+                console.log("수신 메시지:", event.data);
+
+                // 매칭 완료 메시지 처리
+                if (event.data === "MATCHED") {
+                    matched = true;
+                    appendMessage("시스템: 상대방과 연결되었습니다.");
+                    document.getElementById("message-input").disabled = false; // 입력 활성화
+                } else {
+                    appendMessage(event.data);
+                }
+            };
+
+            ws.onclose = (event) => {
+                appendMessage("시스템: 연결이 종료되었습니다.");
+                console.error("WebSocket 연결 종료:", event);
+                resetUI();
+            };
+
+            ws.onerror = (error) => {
+                appendMessage("시스템: WebSocket 오류가 발생했습니다.");
+                console.error("WebSocket 오류:", error);
+            };
+
+            // UI 업데이트
+            document.getElementById("main").style.display = "none";
+            document.getElementById("chat").style.display = "flex";
+        });
+
+        // 메시지 전송 버튼
+        document.getElementById("send-message").addEventListener("click", sendMessage);
+
+        // 메시지 입력 처리
+        document.getElementById("message-input").addEventListener("keypress", (event) => {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+
+        // 채팅 종료 버튼
+        document.getElementById("end-chat").addEventListener("click", () => {
+            if (ws) {
+                ws.close(); // WebSocket 연결 종료
+                appendMessage("시스템: 채팅이 종료되었습니다.");
+                resetUI();
+            }
+        });
+
+        // 메시지 전송 함수
+        function sendMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                appendMessage("시스템: WebSocket 연결이 활성화되지 않았습니다.");
+                return;
+            }
+
+            const messageInput = document.getElementById("message-input");
+            const message = messageInput.value.trim();
+            if (message) {
+                ws.send(message); // 서버로 메시지 전송
+                appendMessage(`You: ${message}`);
+                messageInput.value = ""; // 입력창 초기화
+            }
+        }
+
+        // UI 초기화 함수
+        function resetUI() {
+            matched = false;
+            document.getElementById("main").style.display = "flex";
+            document.getElementById("chat").style.display = "none";
+            document.getElementById("message-input").disabled = true; // 입력 비활성화
+        }
+
+        // 채팅 로그에 메시지 추가
+        function appendMessage(message) {
+            const chatLog = document.getElementById("chat-log");
+            const msg = document.createElement("p");
+            msg.textContent = message;
+            chatLog.appendChild(msg);
+            chatLog.scrollTop = chatLog.scrollHeight; // 스크롤 최신화
+        }
+
+
+    
+        
+    </script>
+</body>
+</html>
